@@ -147,7 +147,7 @@ void CoolBoard::loop() {
   }
   SPIFFS.end();
   if (this->sleepActive &&
-      (!this->shouldLog() || !rtcSynced || !this->coolWebServer.isRunning)) {
+      (!this->shouldLog() || !rtcSynced) && !this->coolWebServer.isRunning) {
     this->sleep(this->secondsToNextLog());
   }
 }

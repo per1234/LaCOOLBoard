@@ -21,11 +21,15 @@ public:
   virtual bool addNewWifi(String ssid, String pass);
   virtual void reWriteWifi(String json);
   virtual String getSdpConfig();
+  virtual String getSavedWifi(String index);
+  virtual bool connectToSavedWifi(String index);
 
 private:
   virtual String getFlashID();
   virtual String getMAC();
   virtual String getUUID();
+  unsigned long _connectTimeout = 2000;
+  uint8_t waitForConnectResult();
 };
 
 #endif

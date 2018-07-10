@@ -28,11 +28,9 @@ bool CoolAsyncEditor::addNewWifi(String ssid, String pass) {
   uint8_t wifiCount = jsonBuf.get<uint8_t>("wifiCount");
   DEBUG_VAR("Number of recorded networks: ", wifiCount);
   if (jsonBuf["wifiCount"].success()) {
-    wifiCount++;
-    jsonBuf["wifiCount"] = wifiCount;
     JsonObject &newWifi =
         jsonBuf.createNestedObject("Wifi" + String(wifiCount));
-
+    jsonBuf["wifiCount"] = wifiCount + 1;
     newWifi["ssid"] = ssid;
     newWifi["pass"] = pass;
     String tmp;
@@ -42,6 +40,54 @@ bool CoolAsyncEditor::addNewWifi(String ssid, String pass) {
     return (true);
   }
 }
+
+String CoolAsyncEditor::getSavedWifi(String index) {
+  DynamicJsonBuffer json;
+  JsonObject &jsonBuf =
+      json.parseObject(this->read("/wifiConfig.json").c_str());
+  if (jsonBuf["Wifi" + index].success()) {
+    String tmp;
+    JsonObject &jWifi = jsonBuf["Wifi" + String(index)];
+    jWifi.printTo(tmp);
+    DEBUG_VAR("Wifi requested: ", tmp);
+    return (tmp);
+  }
+  return ("ERROR");
+}
+
+bool CoolAsyncEditor::connectToSavedWifi(String index) {
+  DynamicJsonBuffer json;
+  JsonObject &jsonBuf =
+      json.parseObject(this->read("/wifiConfig.json").c_str());
+  if (jsonBuf["Wifi" + index].success()) {
+    String tmp;
+    JsonObject &jWifi = jsonBuf["Wifi" + String(index)];
+    WiFi.begin(jWifi.get<String>("ssid").c_str(), jWifi.get<String>("pass").c_str());
+    DEBUG_VAR("Connection Status: ",this->waitForConnectResult());
+  }
+}
+
+
+uint8_t CoolAsyncEditor::waitForConnectResult() {
+  if (_connectTimeout == 0) {
+    return WiFi.waitForConnectResult();
+  } else {
+    unsigned long start = millis();
+    boolean keepConnecting = true;
+    uint8_t status;
+    while (keepConnecting) {
+      status = WiFi.status();
+      if (millis() > start + _connectTimeout) {
+        keepConnecting = false;
+      }
+      if (status == WL_CONNECTED || status == WL_CONNECT_FAILED) {
+        keepConnecting = false;
+      }
+    }
+    return status;
+  }
+}
+
 
 String CoolAsyncEditor::read(String patch) {
   File file = _fs.open(patch, "r");
@@ -91,11 +137,13 @@ String CoolAsyncEditor::getSdpConfig() {
   String ip = WiFi.localIP().toString();
   String xml = this->read("/description.xml");
   int outputLength = xml.length() + ip.length() + friendlyName.length() +
-                     (this->getMAC().length() * 3) + this->getFlashID().length() + 1;
+                     (this->getMAC().length() * 3) +
+                     this->getFlashID().length() + 1;
   char buffer[outputLength];
   buffer[outputLength - 1] = (char)NULL;
   sprintf(buffer, xml.c_str(), ip.c_str(), friendlyName.c_str(),
-          this->getMAC().c_str(), this->getMAC().c_str(), this->getUUID().c_str());
+          this->getMAC().c_str(), this->getMAC().c_str(),
+          this->getUUID().c_str());
   DEBUG_VAR("UPnP descriptor: ", buffer);
   return String(buffer);
 }
@@ -116,5 +164,5 @@ String CoolAsyncEditor::getUUID() {
   sprintf(uuid, "38323636-4558-4dda-9188-cda0e6%02x%02x%02x",
           (uint16_t)((chipId >> 16) & 0xff), (uint16_t)((chipId >> 8) & 0xff),
           (uint16_t)chipId & 0xff);
-          return(uuid);
+  return (uuid);
 }
